@@ -1,4 +1,4 @@
-require('dotenv').config();
+require("dotenv").config();
 
 const express = require("express");
 const cors = require("cors");
@@ -24,9 +24,9 @@ app.use((req, res, next) => {
 (async () => {
   try {
     await connectDB();
-    console.log('数据库连接成功，API 服务已就绪');
+    console.log("数据库连接成功，API 服务已就绪");
   } catch (error) {
-    console.error('启动失败:', error);
+    console.error("启动失败:", error);
     process.exit(1);
   }
 })();
@@ -53,9 +53,9 @@ app.post("/api/register", async (req, res) => {
     const user = new User({
       email,
       password: hashedPassword,
-      credits: 3
+      credits: 3,
     });
-    
+
     const savedUser = await user.save();
     res.json({
       id: savedUser._id.toString(),
@@ -63,7 +63,7 @@ app.post("/api/register", async (req, res) => {
       credits: savedUser.credits,
     });
   } catch (error) {
-    console.error('注册失败:', error);
+    console.error("注册失败:", error);
     res.status(500).json({ error: "注册失败: " + error.message });
   }
 });
@@ -84,7 +84,7 @@ app.post("/api/login", async (req, res) => {
       credits: user.credits,
     });
   } catch (error) {
-    console.error('登录失败:', error);
+    console.error("登录失败:", error);
     res.status(500).json({ error: "服务器错误" });
   }
 });
@@ -93,8 +93,9 @@ app.post("/api/login", async (req, res) => {
 app.get("/api/conversations/:userId", async (req, res) => {
   const { userId } = req.params;
   try {
-    const conversations = await Conversation.find({ user_id: userId })
-      .sort({ created_at: -1 });
+    const conversations = await Conversation.find({ user_id: userId }).sort({
+      created_at: -1,
+    });
 
     const formattedConversations = conversations.map((conv) => ({
       id: conv._id.toString(),
@@ -110,7 +111,7 @@ app.get("/api/conversations/:userId", async (req, res) => {
 
     res.json(formattedConversations);
   } catch (error) {
-    console.error('获取历史记录失败:', error);
+    console.error("获取历史记录失败:", error);
     res.status(500).json({ error: "获取历史记录失败" });
   }
 });
@@ -137,20 +138,46 @@ app.post("/api/generate", validateUser, async (req, res) => {
       return res.status(400).json({ error: "积分不足" });
     }
 
-    const generatedContent = "结合男女演员的不同地域背景..."; // 你的示例内容
+    const response = await axios.post(
+      "https://api.deepseek.com/v1/chat/completions",
+      {
+        model: "deepseek-chat",
+        messages,
+        max_tokens: 2000,
+        temperature: 0.7,
+        top_p: 0.9,
+        presence_penalty: 0,
+        frequency_penalty: 0,
+        stream: false,
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${DEEPSEEK_API_KEY}`,
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+      }
+    );
+
+    const generatedContent = response.data.choices[0].message.content;
 
     const session = await mongoose.startSession();
     session.startTransaction();
 
     try {
       // 保存对话历史
-      const conversation = await Conversation.create([{
-        user_id: userId,
-        product_name: productName,
-        selling_points: sellingPoints,
-        pain_points: painPoints,
-        generated_content: generatedContent
-      }], { session });
+      const conversation = await Conversation.create(
+        [
+          {
+            user_id: userId,
+            product_name: productName,
+            selling_points: sellingPoints,
+            pain_points: painPoints,
+            generated_content: generatedContent,
+          },
+        ],
+        { session }
+      );
 
       // 更新用户积分
       await User.findByIdAndUpdate(
@@ -199,7 +226,7 @@ app.delete("/api/conversations/:id", async (req, res) => {
 app.get("/api/users/:userId", async (req, res) => {
   const { userId } = req.params;
   try {
-    const user = await User.findById(userId).select('email credits');
+    const user = await User.findById(userId).select("email credits");
     if (!user) return res.status(404).json({ error: "用户不存在" });
     res.json({
       id: user._id.toString(),
@@ -207,7 +234,7 @@ app.get("/api/users/:userId", async (req, res) => {
       credits: user.credits,
     });
   } catch (error) {
-    console.error('获取用户信息失败:', error);
+    console.error("获取用户信息失败:", error);
     res.status(500).json({ error: "获取用户信息失败" });
   }
 });
@@ -217,19 +244,19 @@ app.post("/api/payment/create", async (req, res) => {
   const { userId, amount, credits } = req.body;
   try {
     const orderId = `ORDER_${Date.now()}_${userId}`;
-    
+
     await Order.create({
       order_id: orderId,
       user_id: userId,
       amount,
       credits,
-      status: "pending"
+      status: "pending",
     });
 
     res.json({
       orderId,
       qrCode: "/images/wechat-payment-qr.jpg",
-      tip: `请支付${amount}元，支付完成后点击确认按钮`
+      tip: `请支付${amount}元，支付完成后点击确认按钮`,
     });
   } catch (error) {
     console.error("Create payment error:", error);
@@ -245,14 +272,14 @@ app.post("/api/payment/confirm", async (req, res) => {
   session.startTransaction();
 
   try {
-    const order = await Order.findOne({ order_id: orderId, status: 'pending' });
+    const order = await Order.findOne({ order_id: orderId, status: "pending" });
     if (!order) {
       return res.status(500).json({ error: "订单不存在" });
     }
 
     await Order.findByIdAndUpdate(
       order._id,
-      { status: 'completed' },
+      { status: "completed" },
       { session }
     );
 
